@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>광학 검사 최적 조건 가이드 PoC</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 28px;
+        }
+        
+        .input-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .input-field {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .input-field label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        
+        .input-field input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn-generate {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-generate:hover {
+            background: #45a049;
+        }
+        
+        .btn-execute {
+            background: #2196F3;
+            color: white;
+        }
+        
+        .btn-execute:hover {
+            background: #0b7dda;
+        }
+        
+        .data-section {
+            margin-bottom: 20px;
+        }
+        
+        .data-section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+        
+        th {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        
+        tr:hover {
+            background: #f0f0f0;
+        }
+        
+        .result-section {
+            background: #e3f2fd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .result-section h2 {
+            color: #1976d2;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .result-item {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .result-item label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .result-item .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        
+        .chart-section {
+            margin-top: 20px;
+        }
+        
+        canvas {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!--
+    PoC 목적: 경험 기반 광학 검사 조건을 n,k 데이터 분석으로 정량화하여 최적 파장 가이드 제공
+    비숙련자도 데이터 기반으로 최적의 광학 검사 파장을 쉽게 선정할 수 있도록 지원
+    n Contrast 계산을 통해 대상 물질과 배경 물질의 대비가 가장 큰 파장을 자동 추천
+    -->
+    
+    <div class="container">
+        <h1>광학 검사 최적 조건 가이드 PoC</h1>
+        
+        <div class="input-section">
+            <h2>검사 조건 입력</h2>
+            <div class="input-group">
+                <div class="input-field">
+                    <label for="target-material">대상물질명</label>
+                    <input type="text" id="target-material" placeholder="예: Silicon" value="Silicon">
+                </div>
+                <div class="input-field">
+                    <label for="background-material">배경물질명</label>
+                    <input type="text" id="background-material" placeholder="예: SiO2" value="SiO2">
+                </div>
+                <div class="input-field">
+                    <label for="target-performance">목표 검출성능 (%)</label>
+                    <input type="number" id="target-performance" placeholder="예: 95" value="95">
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="btn-generate" onclick="generateDummyData()">더미 데이터 생성</button>
+                <button class="btn-execute" onclick="analyzeOptimalWavelength()">최적 파장 분석</button>
+            </div>
+        </div>
+        
+        <div class="data-section">
+            <h2>파장별 광학 상수 데이터</h2>
+            <div class="table-container">
+                <table id="data-table">
+                    <thead>
+                        <tr>
+                            <th>번호</th>
+                            <th>파장 (nm)</th>
+                            <th>대상물질 n</th>
+                            <th>대상물질 k</th>
+                            <th>배경물질 n</th>
+                            <th>배경물질 k</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-tbody">
+                        <tr>
+                            <td colspan="6">데이터를 생성해주세요</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="result-section hidden" id="result-section">
+            <h2>분석 결과 - Top 3 최적 파장</h2>
+            <div class="result-grid">
+                <div class="result-item">
+                    <label>1순위 추천 파장</label>
+                    <div class="value" id="result-wavelength-1">-</div>
+                    <small id="result-contrast-1" style="color: #666; font-size: 14px;">-</small>
+                </div>
+                <div class="result-item">
+                    <label>2순위 추천 파장</label>
+                    <div class="value" id="result-wavelength-2">-</div>
+                    <small id="result-contrast-2" style="color: #666; font-size: 14px;">-</small>
+                </div>
+                <div class="result-item">
+                    <label>3순위 추천 파장</label>
+                    <div class="value" id="result-wavelength-3">-</div>
+                    <small id="result-contrast-3" style="color: #666; font-size: 14px;">-</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chart-section hidden" id="chart-section">
+            <h2>파장별 n Contrast 분포</h2>
+            <canvas id="chart-canvas" width="1000" height="400"></canvas>
+        </div>
+    </div>
+
+    <script>
+        let dataSet = [];
+
+        function hashString(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash);
+        }
+
+        function seededRandom(seed) {
+            const a = 1664525;
+            const c = 1013904223;
+            const m = Math.pow(2, 32);
+            seed = (a * seed + c) % m;
+            return seed / m;
+        }
+
+        function getMaterialProperties(materialName, wavelength) {
+            const normalizedName = materialName.toLowerCase().trim();
+            const seed = hashString(normalizedName + '_' + wavelength);
+            const n = 1.5 + seededRandom(seed) * 2.0;
+            const k = 0.001 + seededRandom(seed * 2) * 0.1;
+            return { n: parseFloat(n.toFixed(3)), k: parseFloat(k.toFixed(3)) };
+        }
+
+        function generateDummyData() {
+            const targetMaterial = document.getElementById('target-material').value.trim();
+            const backgroundMaterial = document.getElementById('background-material').value.trim();
+            
+            if (!targetMaterial || !backgroundMaterial) {
+                alert('대상물질명과 배경물질명을 입력해주세요.');
+                return;
+            }
+            
+            dataSet = [];
+            const tbody = document.getElementById('data-tbody');
+            tbody.innerHTML = '';
+            
+            for (let i = 0; i < 15; i++) {
+                const wavelength = 190 + i * 18;
+                const targetProps = getMaterialProperties(targetMaterial, wavelength);
+                const backgroundProps = getMaterialProperties(backgroundMaterial, wavelength);
+                
+                dataSet.push({
+                    wavelength,
+                    targetN: targetProps.n,
+                    targetK: targetProps.k,
+                    backgroundN: backgroundProps.n,
+                    backgroundK: backgroundProps.k
+                });
+                
+                const row = tbody.insertRow();
+                row.innerHTML = `
+                    <td>${i + 1}</td>
+                    <td>${wavelength}</td>
+                    <td>${targetProps.n}</td>
+                    <td>${targetProps.k}</td>
+                    <td>${backgroundProps.n}</td>
+                    <td>${backgroundProps.k}</td>
+                `;
+            }
+            
+            alert('15건의 더미 데이터가 생성되었습니다. (파장 범위: 190~442nm)');
+        }
+
+        function analyzeOptimalWavelength() {
+            if (dataSet.length === 0) {
+                alert('먼저 더미 데이터를 생성해주세요.');
+                return;
+            }
+            
+            let contrastData = [];
+            
+            dataSet.forEach(data => {
+                const nContrast = Math.abs(data.targetN - data.backgroundN) / data.backgroundN * 100;
+                contrastData.push({
+                    wavelength: data.wavelength,
+                    contrast: nContrast
+                });
+            });
+            
+            contrastData.sort((a, b) => b.contrast - a.contrast);
+            
+            const top3 = contrastData.slice(0, 3);
+            
+            for (let i = 0; i < 3; i++) {
+                if (top3[i]) {
+                    document.getElementById(`result-wavelength-${i + 1}`).textContent = top3[i].wavelength + ' nm';
+                    document.getElementById(`result-contrast-${i + 1}`).textContent = `n Contrast: ${top3[i].contrast.toFixed(2)}%`;
+                } else {
+                    document.getElementById(`result-wavelength-${i + 1}`).textContent = '-';
+                    document.getElementById(`result-contrast-${i + 1}`).textContent = '-';
+                }
+            }
+            
+            document.getElementById('result-section').classList.remove('hidden');
+            document.getElementById('chart-section').classList.remove('hidden');
+            
+            contrastData.sort((a, b) => a.wavelength - b.wavelength);
+            
+            drawContrastChart(contrastData, top3);
+        }
+
+        function drawContrastChart(contrastData, top3) {
+            const canvas = document.getElementById('chart-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const padding = 60;
+            const chartWidth = canvas.width - padding * 2;
+            const chartHeight = canvas.height - padding * 2;
+            
+            const maxContrastValue = Math.max(...contrastData.map(d => d.contrast));
+            
+            ctx.fillStyle = '#f9f9f9';
+            ctx.fillRect(padding, padding, chartWidth, chartHeight);
+            
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (chartHeight / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + chartWidth, y);
+                ctx.stroke();
+                
+                const value = (maxContrastValue * (1 - i / 5)).toFixed(1);
+                ctx.fillStyle = '#666';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(value + '%', padding - 10, y + 4);
+            }
+            
+            for (let i = 0; i <= contrastData.length - 1; i++) {
+                const x = padding + (chartWidth / (contrastData.length - 1)) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, padding + chartHeight);
+                ctx.lineTo(x, padding + chartHeight + 5);
+                ctx.stroke();
+                
+                if (i % 2 === 0) {
+                    ctx.fillStyle = '#666';
+                    ctx.font = '11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(contrastData[i].wavelength + 'nm', x, padding + chartHeight + 20);
+                }
+            }
+            
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, padding + chartHeight);
+            ctx.lineTo(padding + chartWidth, padding + chartHeight);
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#2196F3';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            contrastData.forEach((d, i) => {
+                const x = padding + (chartWidth / (contrastData.length - 1)) * i;
+                const y = padding + chartHeight - (d.contrast / maxContrastValue) * chartHeight;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            });
+            ctx.stroke();
+            
+            const top3Wavelengths = top3.map(t => t.wavelength);
+            const colors = ['#FF5722', '#FF9800', '#FFC107'];
+            
+            contrastData.forEach((d, i) => {
+                const x = padding + (chartWidth / (contrastData.length - 1)) * i;
+                const y = padding + chartHeight - (d.contrast / maxContrastValue) * chartHeight;
+                
+                const topIndex = top3Wavelengths.indexOf(d.wavelength);
+                
+                if (topIndex !== -1) {
+                    ctx.fillStyle = colors[topIndex];
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillStyle = '#2196F3';
+                    ctx.beginPath();
+                    ctx.arc(x, y, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+            
+            top3.forEach((item, rank) => {
+                const dataIndex = contrastData.findIndex(d => d.wavelength === item.wavelength);
+                if (dataIndex !== -1) {
+                    const x = padding + (chartWidth / (contrastData.length - 1)) * dataIndex;
+                    const y = padding + chartHeight - (item.contrast / maxContrastValue) * chartHeight;
+                    
+                    ctx.fillStyle = colors[rank];
+                    ctx.font = 'bold 11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${rank + 1}위`, x, y - 18);
+                    ctx.fillText(`${item.wavelength}nm`, x, y - 6);
+                }
+            });
+            
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('파장별 n Contrast 분포 그래프 (Top 3 표시)', canvas.width / 2, 30);
+            
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText('파장 (nm)', canvas.width / 2, canvas.height - 10);
+            
+            ctx.save();
+            ctx.translate(20, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.textAlign = 'center';
+            ctx.fillText('n Contrast (%)', 0, 0);
+            ctx.restore();
+        }
+    </script>
+</body>
+</html>
